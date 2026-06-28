@@ -1,0 +1,19 @@
+type Business {
+    businessId: ID
+    businessName: String
+    businessType: String
+    address: String
+    active: Boolean
+}
+
+type Query {
+    businesses: [Business]
+}
+
+type Mutation {
+    createBusiness(
+        name: String!,
+        type: String!,
+        address: String!
+    ): Business
+}
