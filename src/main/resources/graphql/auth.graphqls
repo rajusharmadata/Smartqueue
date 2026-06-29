@@ -1,0 +1,48 @@
+type AuthResponse {
+    accessToken: String!
+    refreshToken: String!
+    userId: ID!
+    name: String!
+    email: String!
+    role: Role!
+}
+
+enum Role {
+    CUSTOMER
+    STAFF
+    ADMIN
+    SUPER_ADMIN
+}
+
+input RegisterRequest {
+    name: String!
+    email: String!
+    phone: String
+    password: String!
+}
+
+input LoginRequest {
+    email: String!
+    password: String!
+}
+input VerifyEmailInput {
+    email: String!
+    otp: String!
+}
+
+input RefreshTokenRequest {
+    refreshToken: String!
+}
+
+extend  type Query {
+    me: String!
+}
+
+
+ extend type Mutation {
+     register(input: RegisterRequest!): String!
+     verifyEmail(input: VerifyEmailInput!): AuthResponse
+     login(input: LoginRequest!): AuthResponse!
+     refreshToken(input: RefreshTokenRequest!): AuthResponse!
+     logout(refreshToken: String!): Boolean!
+}
