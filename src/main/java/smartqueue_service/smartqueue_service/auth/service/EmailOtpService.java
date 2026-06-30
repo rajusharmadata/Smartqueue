@@ -1,10 +1,11 @@
 package smartqueue_service.smartqueue_service.auth.service;
 
+import jakarta.mail.internet.InternetAddress;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import smartqueue_service.smartqueue_service.auth.model.EmailOtp;
 import smartqueue_service.smartqueue_service.auth.repository.EmailOtpRepository;
@@ -25,44 +26,15 @@ public class EmailOtpService {
     private static final long OTP_VALIDITY_MINUTES = 5;
     private static final long OTP_VALID_MS = OTP_VALIDITY_MINUTES * 60 * 1000L;
     private static final int OTP_LENGTH = 6;
+    @Value("${app.mail.from}")
+    private String fromEmail;
 
     /**
      * Send OTP - DB write is synchronous, email is asynchronous.
      */
     public void sendOtp(String email) {
-        String normalizedEmail = verifyEmail(email);
         String otp = generateOtp();
 
-        upsertOtpRecord(normalizedEmail, otp);
-        sendOtpEmailAsync(normalizedEmail, otp);
-
-        log.debug("OTP generated and stored for: {}", normalizedEmail);
-    }
-
-    public boolean verifyOtp(String email, String otp) {
-        if (email == null || otp == null || otp.length() != OTP_LENGTH) {
-            return false;
-        }
-
-        String normalizedEmail = verifyEmail(email);
-
-        return emailOtpRepository.findByEmail(normalizedEmail)
-                .filter(record -> !record.isUsed())
-                .filter(record -> record.getExpiresAt().isAfter(Instant.now()))
-                .filter(record -> record.getOtp().equals(otp))
-                .map(record -> {
-                    record.setUsed(true);
-                    record.setOtp(null);
-                    emailOtpRepository.save(record);
-                    log.debug("OTP verified and marked used for: {}", normalizedEmail);
-                    return true;
-                })
-                .orElse(false);
-    }
-
-    // ── Private Helpers ───────────────────────────────────────────────────────
-
-    private void upsertOtpRecord(String email, String otp) {
         EmailOtp record = emailOtpRepository.findByEmail(email)
                 .orElseGet(() -> EmailOtp.builder().email(email).build());
 
@@ -71,33 +43,54 @@ public class EmailOtpService {
         record.setUsed(false);
 
         emailOtpRepository.save(record);
+        sendOtpEmailAsync(email, otp);
+
+        log.debug("OTP generated and stored for: {}", email);
     }
+
+    public boolean verifyOtp(String email, String otp) {
+        if (email == null || otp == null || otp.length() != OTP_LENGTH) {
+            return false;
+        }
+
+
+        return emailOtpRepository.findByEmail(email)
+                .filter(record -> !record.isUsed())
+                .filter(record -> record.getExpiresAt().isAfter(Instant.now()))
+                .filter(record -> record.getOtp().equals(otp))
+                .map(record -> {
+                    record.setUsed(true);
+                    record.setOtp(null);
+                    emailOtpRepository.save(record);
+                    log.debug("OTP verified and marked used for: {}", email);
+                    return true;
+                })
+                .orElse(false);
+    }
+
 
     private String generateOtp() {
         int number = 100_000 + RANDOM.nextInt(900_000);
         return String.valueOf(number);
     }
-
-    @Async("otpExecutor")
     public void sendOtpEmailAsync(String email, String otp) {
         try {
-            sendMail(email, otp);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(  new InternetAddress(
+                    fromEmail,
+                    "Quptos"
+            ));
+            helper.setTo(email);
+            helper.setSubject("Your Quptos verification code");
+            helper.setText(buildHtmlTemplate(otp), true);
+
+            mailSender.send(message);
             log.info("OTP email sent successfully to: {}", email);
         } catch (Exception e) {
             // Do not fail the business flow if email sending fails
             log.error("Failed to send OTP email to {}: {}", email, e.getMessage(), e);
         }
-    }
-
-    private void sendMail(String email, String otp) throws Exception {
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-        helper.setTo(email);
-        helper.setSubject("Your Quptos verification code");
-        helper.setText(buildHtmlTemplate(otp), true);
-
-        mailSender.send(message);
     }
 
     private String buildHtmlTemplate(String otp) {
@@ -207,9 +200,5 @@ public class EmailOtpService {
         </body>
         </html>
         """.replace("{{OTP}}", otp);
-    }
-
-    private String verifyEmail(String email) {
-        return email == null ? "" : email.trim().toLowerCase();
     }
 }
