@@ -72,7 +72,7 @@ public class EmailOtpService {
 
         emailOtpRepository.save(record);
     }
-dd
+
     private String generateOtp() {
         int number = 100_000 + RANDOM.nextInt(900_000);
         return String.valueOf(number);
