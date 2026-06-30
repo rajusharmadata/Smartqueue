@@ -47,7 +47,7 @@ public class AuthService {
 
 
         if (existingUser.isPresent()) {
-            throw new ConflictException("Email already registered ");
+            throw new AuthException("Email already registered ");
         }
 
         if (request.phone() != null && !request.phone().trim().isEmpty() &&
