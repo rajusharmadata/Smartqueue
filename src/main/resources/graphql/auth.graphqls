@@ -37,7 +37,25 @@ input RefreshTokenRequest {
 extend  type Query {
     me: String!
 }
+input ForgotPasswordRequest {
+    email: String!
+}
 
+input ResetPasswordRequest {
+    email: String!
+    otp: String!
+    newPassword: String!
+}
+
+input ResendOtpRequest {
+    email: String!
+}
+
+extend type Mutation {
+    forgotPassword(input: ForgotPasswordRequest!): String!
+    resetPassword(input: ResetPasswordRequest!): String!
+    resendOtp(input: ResendOtpRequest!): String!
+}
 
  extend type Mutation {
      register(input: RegisterRequest!): String!

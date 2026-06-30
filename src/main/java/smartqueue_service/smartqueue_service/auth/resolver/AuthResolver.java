@@ -21,6 +21,12 @@ public class AuthResolver {
     public String register(@Argument @Valid RegisterRequest input) {
         return authService.register(input);
     }
+
+    @MutationMapping
+    public String resendOtp(@Argument @Valid ResendOtpRequest input) throws AuthException {
+        return authService.resendOtp(input);
+    }
+
     @MutationMapping
     public AuthResponse verifyEmail(@Argument @Valid VerifyEmailRequest input) throws AuthException {
         return authService.verifyEmail(input.email(), input.otp());
@@ -32,19 +38,29 @@ public class AuthResolver {
     }
 
     @MutationMapping
+    public String forgotPassword(@Argument @Valid ForgotPasswordRequest input) {
+        return authService.forgotPassword(input);
+    }
+
+    @MutationMapping
+    public String resetPassword(@Argument @Valid ResetPasswordRequest input) throws AuthException {
+        return authService.resetPassword(input);
+    }
+
+    @MutationMapping
     public AuthResponse refreshToken(@Argument @Valid RefreshTokenRequest input) throws AuthException {
         return authService.refresh(input);
     }
 
     @MutationMapping
-    @RequireAuth   // any authenticated user can logout
+    @RequireAuth
     public Boolean logout(@Argument String refreshToken) {
         authService.logout(refreshToken);
         return true;
     }
 
     @QueryMapping
-    @RequireAuth   // usage example — only authenticated users
+    @RequireAuth
     public String me() {
         return "Authenticated";
     }
