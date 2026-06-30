@@ -41,20 +41,15 @@ public class AuthService {
     // ── Register ──────────────────────────────────────────────────────────────
     @Transactional
     public String register(RegisterRequest request) {
-        String email = normalizeEmail(request.email());
+        String email = VerifyEmail(request.email());
 
-        Optional<User> existingOpt = userRepository.findByEmail(email);
+        Optional<User> existingUser = userRepository.findByEmail(email);
 
-        if (existingOpt.isPresent()) {
-            User existing = existingOpt.get();
-            if (!existing.isEmailVerified()) {
-                emailOtpService.sendOtp(email);
-                return OTP_RESENT_MSG + email;
-            }
-            throw new ConflictException("Email already registered and verified");
+
+        if (existingUser.isPresent()) {
+            throw new ConflictException("Email already registered ");
         }
 
-        // Phone uniqueness check (only if provided)
         if (request.phone() != null && !request.phone().trim().isEmpty() &&
                 userRepository.existsByPhone(request.phone().trim())) {
             throw new ConflictException("Phone number already registered");
@@ -77,10 +72,9 @@ public class AuthService {
         return OTP_SENT_MSG + email;
     }
 
-    // ── Resend OTP ────────────────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public String resendOtp(ResendOtpRequest request) {
-        String email = normalizeEmail(request.email());
+        String email = VerifyEmail(request.email());
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthException("No account found with this email"));
 
@@ -96,7 +90,7 @@ public class AuthService {
     // ── Verify Email ──────────────────────────────────────────────────────────
     @Transactional
     public AuthResponse verifyEmail(String email, String otp) {
-        String normalizedEmail = normalizeEmail(email);
+        String normalizedEmail = VerifyEmail(email);
 
         if (!emailOtpService.verifyOtp(normalizedEmail, otp)) {
             throw new AuthException("Invalid or expired OTP");
@@ -115,7 +109,7 @@ public class AuthService {
     // ── Login ─────────────────────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        String email = normalizeEmail(request.email());
+        String email = VerifyEmail(request.email());
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AuthException("Invalid email or password"));
 
@@ -139,7 +133,7 @@ public class AuthService {
     // ── Forgot Password ───────────────────────────────────────────────────────
     @Transactional(readOnly = true)
     public String forgotPassword(ForgotPasswordRequest request) {
-        String email = normalizeEmail(request.email());
+        String email = VerifyEmail(request.email());
 
         // Always return generic message (prevents user enumeration)
         userRepository.findByEmail(email).ifPresent(user -> {
@@ -153,7 +147,7 @@ public class AuthService {
     // ── Reset Password ────────────────────────────────────────────────────────
     @Transactional
     public String resetPassword(ResetPasswordRequest request) {
-        String email = normalizeEmail(request.email());
+        String email = VerifyEmail(request.email());
 
         if (!emailOtpService.verifyOtp(email, request.otp())) {
             throw new AuthException("Invalid or expired OTP");
@@ -206,7 +200,7 @@ public class AuthService {
     }
 
     // ── Private Helpers ───────────────────────────────────────────────────────
-    private String normalizeEmail(String email) {
+    private String VerifyEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase();
     }
 
